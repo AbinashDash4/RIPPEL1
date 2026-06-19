@@ -69,14 +69,18 @@ export default function Hero() {
     const ctx = gsap.context(() => {
       // Rolling word mechanic — settles like water finding level, not a slot reel
       if (wordsRef.current) {
-        const tl = gsap.timeline({ repeat: -1 });
+        // Force a clean starting position immediately — prevents a flash of
+        // blank/misaligned text on mount if a previous effect run (StrictMode,
+        // fast refresh) left a stale transform on the element.
+        gsap.set(wordsRef.current, { yPercent: 0 });
+
+        const tl = gsap.timeline({ repeat: -1, delay: 1.1 });
         for (let i = 0; i < rollingWords.length - 1; i++) {
           tl.to(wordsRef.current, {
             yPercent: -100 * (i + 1),
-            duration: 0.9,
+            duration: 0.7,
             ease: "power2.inOut",
-            delay: 1.7,
-          });
+          }).to({}, { duration: 1.1 }); // hold each word before advancing
         }
         tl.set(wordsRef.current, { yPercent: 0 });
       }
@@ -92,10 +96,10 @@ export default function Hero() {
       gsap.from(".hero-fade", {
         y: 28,
         opacity: 0,
-        stagger: 0.1,
-        duration: 0.8,
+        stagger: 0.08,
+        duration: 0.6,
         ease: "power3.out",
-        delay: 0.4,
+        delay: 0.2,
       });
 
       // Water surface fades/scales in
