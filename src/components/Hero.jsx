@@ -25,7 +25,7 @@ export default function Hero() {
   const [charIndex, setCharIndex] = useState(0);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const rollingWords = [
+  const typingWords = [
     "Marketing",
     "Influencers",
     "Talent Management",
