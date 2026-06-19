@@ -7,9 +7,10 @@ gsap.registerPlugin(ScrollTrigger);
 export default function Hero() {
   const containerRef = useRef(null);
   const textRef = useRef(null);
-  const imageRef = useRef(null);
+  const waterRef = useRef(null);
   const wordsRef = useRef(null);
-  const cardRef = useRef(null);
+  const ringsGroupRef = useRef(null);
+  const dropRef = useRef(null);
 
   const rollingWords = [
     "Marketing",
@@ -21,20 +22,62 @@ export default function Hero() {
     "Marketing",
   ];
 
+  // Spawn a single expanding ripple ring at (x, y) within the water surface
+  const spawnRipple = (x, y, opts = {}) => {
+    const group = ringsGroupRef.current;
+    if (!group) return;
+
+    const {
+      maxRadius = 230,
+      duration = 2.6,
+      strokeWidth = 1.6,
+      opacity = 0.55,
+    } = opts;
+
+    const ns = "http://www.w3.org/2000/svg";
+    const circle = document.createElementNS(ns, "circle");
+    circle.setAttribute("cx", x);
+    circle.setAttribute("cy", y);
+    circle.setAttribute("r", "0");
+    circle.setAttribute("fill", "none");
+    circle.setAttribute("stroke", "var(--ripple-line)");
+    circle.setAttribute("stroke-width", strokeWidth);
+    circle.setAttribute("opacity", opacity);
+    group.appendChild(circle);
+
+    gsap.fromTo(
+      circle,
+      { attr: { r: 0 }, opacity },
+      {
+        attr: { r: maxRadius },
+        opacity: 0,
+        duration,
+        ease: "power2.out",
+        onComplete: () => circle.remove(),
+      }
+    );
+
+    // subtle stroke thinning as the ring expands, like real water
+    gsap.to(circle, {
+      attr: { "stroke-width": 0.2 },
+      duration,
+      ease: "power1.out",
+    });
+  };
+
   useEffect(() => {
     const ctx = gsap.context(() => {
+      // Rolling word mechanic — settles like water finding level, not a slot reel
       if (wordsRef.current) {
         const tl = gsap.timeline({ repeat: -1 });
-
         for (let i = 0; i < rollingWords.length - 1; i++) {
           tl.to(wordsRef.current, {
             yPercent: -100 * (i + 1),
-            duration: 0.75,
-            ease: "power3.inOut",
-            delay: 1.6,
+            duration: 0.9,
+            ease: "power2.inOut",
+            delay: 1.7,
           });
         }
-
         tl.set(wordsRef.current, { yPercent: 0 });
       }
 
@@ -47,7 +90,7 @@ export default function Hero() {
       });
 
       gsap.from(".hero-fade", {
-        y: 35,
+        y: 28,
         opacity: 0,
         stagger: 0.1,
         duration: 0.8,
@@ -55,39 +98,27 @@ export default function Hero() {
         delay: 0.4,
       });
 
-      gsap.from(".hero-card", {
-        scale: 0.85,
+      // Water surface fades/scales in
+      gsap.from(waterRef.current, {
+        scale: 0.92,
         opacity: 0,
-        rotateY: -18,
-        duration: 1.2,
-        ease: "back.out(1.6)",
-        delay: 0.3,
+        duration: 1.4,
+        ease: "power3.out",
+        delay: 0.2,
       });
 
-      gsap.to(".hero-card", {
-        y: 18,
-        duration: 3,
+      // Gentle ambient bob, like a surface, not a card floating in space
+      gsap.to(waterRef.current, {
+        y: 10,
+        duration: 4.5,
         repeat: -1,
         yoyo: true,
         ease: "sine.inOut",
       });
 
-      gsap.to(".orbit-ring", {
-        rotate: 360,
-        duration: 28,
-        repeat: -1,
-        ease: "none",
-      });
-
-      gsap.to(".orbit-ring-reverse", {
-        rotate: -360,
-        duration: 38,
-        repeat: -1,
-        ease: "none",
-      });
-
+      // Scroll parallax
       gsap.to(textRef.current, {
-        y: -80,
+        y: -70,
         opacity: 0,
         scrollTrigger: {
           trigger: containerRef.current,
@@ -97,8 +128,8 @@ export default function Hero() {
         },
       });
 
-      gsap.to(imageRef.current, {
-        y: 90,
+      gsap.to(waterRef.current, {
+        y: 70,
         scrollTrigger: {
           trigger: containerRef.current,
           start: "top top",
@@ -108,25 +139,36 @@ export default function Hero() {
       });
     }, containerRef);
 
-    const handleMouseMove = (e) => {
-      if (!cardRef.current) return;
+    // The opening drop — the literal "Ripple" moment, fired once on load
+    const dropTimer = setTimeout(() => {
+      if (dropRef.current) {
+        gsap.fromTo(
+          dropRef.current,
+          { scale: 0, opacity: 1 },
+          {
+            scale: 1,
+            opacity: 0,
+            duration: 0.5,
+            ease: "power2.out",
+          }
+        );
+      }
+      spawnRipple(230, 230, { maxRadius: 80, duration: 1.6, strokeWidth: 2.4, opacity: 0.8 });
+      spawnRipple(230, 230, { maxRadius: 150, duration: 2.2, strokeWidth: 1.8, opacity: 0.6 });
+      spawnRipple(230, 230, { maxRadius: 220, duration: 2.8, strokeWidth: 1.2, opacity: 0.4 });
+    }, 900);
 
-      const x = (e.clientX - window.innerWidth / 2) * 0.005;
-      const y = (e.clientY - window.innerHeight / 2) * 0.005;
-
-      gsap.to(cardRef.current, {
-        rotateY: x,
-        rotateX: -y,
-        duration: 0.8,
-        ease: "power3.out",
-      });
-    };
-
-    window.addEventListener("mousemove", handleMouseMove);
+    // Idle ambient ripple, slow and infrequent — water never sits perfectly still
+    const ambientInterval = setInterval(() => {
+      const x = 90 + Math.random() * 280;
+      const y = 90 + Math.random() * 280;
+      spawnRipple(x, y, { maxRadius: 70, duration: 3, strokeWidth: 1, opacity: 0.25 });
+    }, 3400);
 
     return () => {
       ctx.revert();
-      window.removeEventListener("mousemove", handleMouseMove);
+      clearTimeout(dropTimer);
+      clearInterval(ambientInterval);
     };
   }, []);
 
@@ -135,25 +177,51 @@ export default function Hero() {
     if (target) target.scrollIntoView({ behavior: "smooth" });
   };
 
+  const handleWaterClick = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 460;
+    const y = ((e.clientY - rect.top) / rect.height) * 460;
+    spawnRipple(x, y, { maxRadius: 60, duration: 1.4, strokeWidth: 2, opacity: 0.7 });
+    spawnRipple(x, y, { maxRadius: 130, duration: 2, strokeWidth: 1.3, opacity: 0.45 });
+  };
+
   return (
     <section
       ref={containerRef}
       id="home"
-      className="relative min-h-screen flex items-center justify-center bg-white text-zinc-950 px-6 py-24 md:py-32 overflow-hidden"
+      className="relative min-h-screen flex items-center justify-center px-6 py-24 md:py-32 overflow-hidden"
+      style={{
+        "--ripple-ink": "#0B1A1F",
+        "--ripple-deep": "#0891B2",
+        "--ripple-bright": "#22D3EE",
+        "--ripple-line": "#0E7490",
+        "--ripple-paper": "#FAFAF9",
+        backgroundColor: "var(--ripple-paper)",
+        color: "var(--ripple-ink)",
+      }}
     >
-      <div className="absolute top-[-20%] right-[-10%] w-[560px] h-[560px] bg-cyan-400/20 blur-[150px] rounded-full" />
-      <div className="absolute bottom-[-20%] left-[-10%] w-[560px] h-[560px] bg-blue-500/10 blur-[150px] rounded-full" />
+      {/* Faint horizon wash, not a glow blob — sits low like light off water */}
+      <div
+        className="absolute inset-x-0 bottom-0 h-[55%] pointer-events-none"
+        style={{
+          background:
+            "linear-gradient(to top, rgba(8,145,178,0.10), rgba(8,145,178,0))",
+        }}
+      />
 
       <div className="max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-2 gap-12 items-center relative z-10">
         <div ref={textRef} className="flex flex-col justify-center text-left">
           <span className="hero-fade text-xs uppercase font-mono tracking-[0.25em] text-zinc-500 font-bold mb-4 flex items-center gap-3">
-            <span className="w-8 h-[1px] bg-cyan-400" />
-            Marketing Agency | Influencer Marketing | Talent Management
+            <span className="w-8 h-[1px]" style={{ backgroundColor: "var(--ripple-deep)" }} />
+            Marketing Agency &middot; Influencer Marketing &middot; Talent Management
           </span>
 
-          <h1 className="text-6xl md:text-8xl lg:text-[5.7vw] font-black uppercase tracking-tighter leading-[0.9] text-zinc-900 overflow-hidden">
+          <h1 className="text-6xl md:text-8xl lg:text-[5.7vw] font-black uppercase tracking-tighter leading-[0.9] overflow-hidden">
             <span className="hero-title-line block">Ripple</span>
-            <span className="hero-title-line block text-cyan-500">
+            <span
+              className="hero-title-line block"
+              style={{ color: "var(--ripple-deep)" }}
+            >
               Creative
             </span>
           </h1>
@@ -166,7 +234,8 @@ export default function Hero() {
             <div className="relative h-[54px] md:h-[72px] overflow-hidden w-full">
               <div
                 ref={wordsRef}
-                className="flex flex-col text-[34px] md:text-[58px] lg:text-[62px] font-black uppercase tracking-tight text-cyan-500 leading-none"
+                className="flex flex-col text-[34px] md:text-[58px] lg:text-[62px] font-black uppercase tracking-tight leading-none"
+                style={{ color: "var(--ripple-deep)" }}
               >
                 {rollingWords.map((word, idx) => (
                   <div
@@ -189,69 +258,94 @@ export default function Hero() {
           <div className="hero-fade flex flex-wrap gap-4 mt-8">
             <button
               onClick={() => handleCtaClick("contact")}
-              className="px-6 py-3 bg-zinc-950 text-white font-bold text-xs uppercase tracking-wider rounded-full hover:bg-cyan-500 hover:text-zinc-950 transition-all duration-300 hover:shadow-[0_0_28px_rgba(0,212,255,0.45)]"
+              className="px-6 py-3 text-white font-bold text-xs uppercase tracking-wider rounded-full transition-all duration-300"
+              style={{ backgroundColor: "var(--ripple-ink)" }}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--ripple-deep)")}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "var(--ripple-ink)")}
             >
               Book Free Consultation
             </button>
 
             <button
               onClick={() => handleCtaClick("case-studies")}
-              className="px-6 py-3 bg-zinc-100 text-zinc-900 border border-zinc-300 font-bold text-xs uppercase tracking-wider rounded-full hover:border-cyan-400 hover:bg-white transition-all duration-300"
+              className="px-6 py-3 bg-transparent font-bold text-xs uppercase tracking-wider rounded-full border transition-all duration-300"
+              style={{ borderColor: "#D4D4D8", color: "var(--ripple-ink)" }}
             >
               View Case Studies
             </button>
           </div>
         </div>
 
-        <div
-          ref={imageRef}
-          className="flex justify-center lg:justify-end items-center relative w-full h-[390px] md:h-[520px] lg:h-[590px]"
-        >
-          <div className="absolute w-[540px] h-[540px] rounded-full bg-cyan-400/25 blur-[130px]" />
-
+        {/* The signature element: an actual ripple-on-water surface */}
+        <div className="flex justify-center lg:justify-end items-center relative w-full h-[390px] md:h-[460px] lg:h-[480px]">
           <div
-            ref={cardRef}
-            className="hero-card relative w-full max-w-[450px] aspect-[4/5] rounded-[42px] overflow-hidden border border-cyan-400/30 bg-[#020617] shadow-[0_40px_110px_rgba(0,0,0,0.38)]"
-            style={{ transformStyle: "preserve-3d" }}
+            ref={waterRef}
+            onClick={handleWaterClick}
+            className="relative w-full max-w-[460px] aspect-square cursor-pointer select-none"
+            title="Drop a ripple"
           >
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(0,212,255,0.32),transparent_55%)]" />
-            <div className="absolute inset-4 rounded-[34px] border border-cyan-300/20 bg-white/[0.04] backdrop-blur-xl" />
+            <svg
+              viewBox="0 0 460 460"
+              className="absolute inset-0 w-full h-full"
+              style={{ overflow: "visible" }}
+            >
+              <defs>
+                <radialGradient id="waterSurface" cx="50%" cy="50%" r="65%">
+                  <stop offset="0%" stopColor="#CFFAFE" stopOpacity="0.9" />
+                  <stop offset="55%" stopColor="#A5F3FC" stopOpacity="0.45" />
+                  <stop offset="100%" stopColor="#A5F3FC" stopOpacity="0" />
+                </radialGradient>
+                <clipPath id="waterClip">
+                  <circle cx="230" cy="230" r="220" />
+                </clipPath>
+              </defs>
 
-            <div className="absolute top-7 left-7 flex gap-2 z-20">
-              <span className="w-2.5 h-2.5 rounded-full bg-red-500" />
-              <span className="w-2.5 h-2.5 rounded-full bg-yellow-400" />
-              <span className="w-2.5 h-2.5 rounded-full bg-green-500" />
-            </div>
+              {/* still water base */}
+              <circle cx="230" cy="230" r="220" fill="url(#waterSurface)" />
+              <circle
+                cx="230"
+                cy="230"
+                r="219.5"
+                fill="none"
+                stroke="#0E7490"
+                strokeOpacity="0.15"
+                strokeWidth="1"
+              />
 
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="orbit-ring absolute w-[360px] h-[360px] rounded-full border border-dashed border-cyan-400/25" />
-              <div className="orbit-ring-reverse absolute w-[285px] h-[285px] rounded-full border border-cyan-400/25" />
-              <div className="absolute w-[220px] h-[220px] rounded-full bg-cyan-400/10 blur-xl" />
+              {/* static depth rings, fixed reference rings for the "still" state */}
+              <g clipPath="url(#waterClip)" opacity="0.35">
+                <circle cx="230" cy="230" r="60" fill="none" stroke="#0E7490" strokeWidth="1" />
+                <circle cx="230" cy="230" r="120" fill="none" stroke="#0E7490" strokeWidth="0.75" />
+                <circle cx="230" cy="230" r="180" fill="none" stroke="#0E7490" strokeWidth="0.5" />
+              </g>
 
-              <div className="relative z-10 w-[185px] h-[185px] rounded-full bg-white flex items-center justify-center shadow-[0_0_95px_rgba(0,212,255,0.7)]">
-                <img
-                  src="/ripple_logo.png"
-                  alt="Ripple Creative Logo"
-                  className="w-[145px] object-contain"
-                />
-              </div>
-            </div>
+              {/* animated ripple rings get appended here at runtime */}
+              <g ref={ringsGroupRef} clipPath="url(#waterClip)" />
 
-            <div className="absolute bottom-28 left-1/2 -translate-x-1/2 w-[240px] h-[4px] rounded-full bg-white/10 overflow-hidden">
-              <div className="h-full w-[70%] bg-cyan-400 rounded-full shadow-[0_0_20px_rgba(0,212,255,1)]" />
-            </div>
+              {/* the drop / wordmark, centered */}
+              <g ref={dropRef} style={{ transformOrigin: "230px 230px" }}>
+                <circle cx="230" cy="230" r="7" fill="var(--ripple-ink)" />
+              </g>
 
-            <div className="absolute bottom-16 left-1/2 -translate-x-1/2 flex gap-8">
-              {[1, 2, 3, 4].map((i) => (
-                <span
-                  key={i}
-                  className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_18px_rgba(0,212,255,1)]"
-                />
-              ))}
-            </div>
+              <foreignObject x="115" y="195" width="230" height="70">
+                <div
+                  xmlns="http://www.w3.org/1999/xhtml"
+                  className="w-full h-full flex items-center justify-center"
+                >
+                  <img
+                    src="/ripple_logo.png"
+                    alt="Ripple Creative Logo"
+                    className="max-w-[120px] max-h-[60px] object-contain"
+                  />
+                </div>
+              </foreignObject>
+            </svg>
 
-            <div className="absolute bottom-8 right-8 text-[10px] font-mono tracking-[0.3em] text-cyan-300/80 font-bold">
-              RIPPLE // CREATIVE
+            <div
+              className="absolute bottom-2 right-2 text-[10px] font-mono tracking-[0.3em] font-bold pointer-events-none"
+              style={{ color: "#0E7490", opacity: 0.6 }}
+            >
+              TAP THE WATER
             </div>
           </div>
         </div>
